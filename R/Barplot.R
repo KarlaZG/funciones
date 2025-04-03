@@ -4,9 +4,7 @@ relative_abundance_plot <-
            col_x,
            facet_col = NULL,
            num_grupos,
-           tax = "Group",
-           label="Taxonomy") {
-    
+           label = "Taxonomy") {
     library(ggplot2)
     library(ggthemes)
     library(patchwork)
@@ -15,11 +13,11 @@ relative_abundance_plot <-
     library(ggtext)
     
     
-    tabla[,-1] <-
-      sweep(tabla[,-1], 2, colSums(tabla[,-1], na.rm = TRUE), FUN = "/") * 100
+    tabla[, -1] <-
+      sweep(tabla[, -1], 2, colSums(tabla[, -1], na.rm = TRUE), FUN = "/") * 100
     
-    tabla_ordenada <- tabla[order(tabla[, 2], decreasing = TRUE), ]
-    tabla_ordenada <- tabla_ordenada[1:num_grupos,]
+    tabla_ordenada <- tabla[order(tabla[, 2], decreasing = TRUE),]
+    tabla_ordenada <- tabla_ordenada[1:num_grupos, ]
     rownames(tabla_ordenada) <- NULL
     tabla_ordenada <- column_to_rownames(tabla_ordenada, "Group")
     tabla_ordenada <- data.frame(t(tabla_ordenada))
@@ -112,7 +110,7 @@ relative_abundance_plot <-
         legend.text = element_markdown(size = 12)
       ) +
       ylim(0, 100) +
-      ylab("Relative abundance (%)")+
+      ylab("Relative abundance (%)") +
       xlab("Sample")
     
     # Agregar facet_wrap() si facet_col no es NULL
@@ -122,4 +120,3 @@ relative_abundance_plot <-
     
     return(p)
   }
-
