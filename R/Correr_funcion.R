@@ -8,3 +8,4 @@ relative_abundance_plot(
   label="Género",
   num_grupos = 15
 )
+

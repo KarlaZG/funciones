@@ -5,7 +5,8 @@ relative_abundance_plot <-
            facet_col = NULL,
            group_var,
            label = "Taxonomy",
-           num_grupos=15) {
+           num_grupos = 15) {
+    
     library(ggplot2)
     library(ggthemes)
     library(patchwork)
@@ -24,12 +25,12 @@ relative_abundance_plot <-
     
     # Unir con metadatos
     columnas_a_unir <- c("SAMPLEID", col_x, facet_col, group_var)
-    columnas_a_unir <- columnas_a_unir[!is.na(columnas_a_unir) & columnas_a_unir != "NULL"]  # Eliminar NULLs
+    columnas_a_unir <- columnas_a_unir[!is.na(columnas_a_unir) & columnas_a_unir != "NULL"]
     
     tabla_long <- tabla_long %>%
       left_join(metadata %>% select(all_of(columnas_a_unir)), by = "SAMPLEID")
     
-    # Promediar por la variable especificada (group_var) y facet_col si está presente
+    # Promediar por grupo y posibles facetas
     grupo_vars <- c(group_var, "Group")
     if (!is.null(facet_col)) {
       grupo_vars <- c(grupo_vars, facet_col)
@@ -39,47 +40,62 @@ relative_abundance_plot <-
       group_by(across(all_of(grupo_vars))) %>%
       summarise(PromedioAbundancia = mean(RelativeAbundance, na.rm = TRUE), .groups = "drop")
     
-    # Calcular el promedio general por grupo
+    # Obtener los grupos con mayor abundancia promedio
     promedio_general <- promedio_tratamiento %>%
       group_by(Group) %>%
       summarise(MeanAbundance = mean(PromedioAbundancia, na.rm = TRUE))
     
-    # Seleccionar los 15 grupos más abundantes según el promedio general
     top_groups <- promedio_general %>%
       arrange(desc(MeanAbundance)) %>%
       slice_head(n = num_grupos) %>%
       pull(Group)
     
-    # Filtrar solo los top 15 grupos
+    # Filtrar los top N grupos
     promedio_tratamiento <- promedio_tratamiento %>%
       filter(Group %in% top_groups)
     
-    # Modificar los nombres de los grupos
+    # Simplificar nombres de grupos
     promedio_tratamiento <- promedio_tratamiento %>%
       mutate(Group = case_when(
-        grepl("g__", Group) ~ sub(".*g__", "", Group),  # Si contiene "g__"
-        grepl(".__", Group) ~ sub(".*f__(.*)\\..*", "other \\1", Group),  # Si contiene ".__", extraer lo que está después de "f__" y antes de "."
-        TRUE ~ Group  # Si no contiene ninguno, mantener el nombre original
+        grepl("g__", Group) ~ sub(".*g__", "", Group),
+        grepl(".__", Group) ~ sub(".*f__(.*)\\..*", "other \\1", Group),
+        TRUE ~ Group
       ))
     
-    # Asegurar el orden de los facets en el mismo orden que aparecen en la tabla
+    # Ordenar facetas si hay
     if (!is.null(facet_col)) {
       niveles_facet <- unique(promedio_tratamiento[[facet_col]])
       promedio_tratamiento[[facet_col]] <-
         factor(promedio_tratamiento[[facet_col]], levels = niveles_facet)
     }
     
-    # Paleta de colores
-    cbPalette <- colorRampPalette(c("#999999", "#0099CC", "#ff6600", "#FF0066", "#99FF33", 
-                                    "#CC00cc", "#009E73", "#F0E442", "#0072B2", "#ff9900", 
-                                    "#56B4E9", "#FFFFFF", "#99ff90", "#ffff00", "#FF0000"))(length(unique(promedio_tratamiento$Group)))
+    # Ordenar el eje x según el orden original en metadata
+    niveles_x <- unique(metadata[[group_var]])
+    promedio_tratamiento[[group_var]] <- factor(promedio_tratamiento[[group_var]],
+                                                levels = niveles_x)
     
-    # Reordenar factores
-    promedio_tratamiento <- promedio_tratamiento %>%
-      mutate(Group = fct_reorder(Group, PromedioAbundancia, .desc = FALSE))
+    # Reordenar los niveles de Group según su valor máximo individual (y luego invertir)
+    orden_grupos <- promedio_tratamiento %>%
+      group_by(Group) %>%
+      summarise(max_abund = max(PromedioAbundancia, na.rm = TRUE)) %>%
+      arrange(desc(max_abund)) %>%
+      pull(Group)
+    
+    promedio_tratamiento$Group <- factor(promedio_tratamiento$Group, levels = rev(orden_grupos))
+    
+    # Paleta de colores
+    cbPalette <- colorRampPalette(c(
+      "#999999", "#0099CC", "#ff6600", "#FF0066", "#99FF33", 
+      "#CC00cc", "#009E73", "#F0E442", "#0072B2", "#ff9900", 
+      "#56B4E9", "#FFFFFF", "#99ff90", "#ffff00", "#FF0000"
+    ))(length(unique(promedio_tratamiento$Group)))
     
     # Crear gráfico
-    p <- ggplot(promedio_tratamiento, aes(fill = Group, y = PromedioAbundancia, x = fct_reorder(!!sym(group_var), PromedioAbundancia, .desc = FALSE))) +
+    p <- ggplot(promedio_tratamiento, aes(
+      fill = Group,
+      y = PromedioAbundancia,
+      x = !!sym(group_var)
+    )) +
       geom_bar(position = "stack", stat = "identity", width = 0.5, color = "#000000") +
       scale_fill_manual(name = label, values = cbPalette) +
       theme_bw() +
@@ -90,7 +106,6 @@ relative_abundance_plot <-
       ylab("Relative abundance (%)") +
       xlab("Sample")
     
-    # Agregar facet_wrap() si facet_col no es NULL
     if (!is.null(facet_col)) {
       p <- p + facet_wrap(vars(!!sym(facet_col)), scales = "free_x")
     }
