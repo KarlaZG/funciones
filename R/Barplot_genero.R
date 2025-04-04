@@ -58,7 +58,7 @@ relative_abundance_plot <-
     promedio_tratamiento <- promedio_tratamiento %>%
       mutate(Group = case_when(
         grepl("g__", Group) ~ sub(".*g__", "", Group),  # Si contiene "g__"
-        grepl(".__", Group) ~ sub(".*f__(.*)\\..*", "\\1", Group),  # Si contiene ".__", extraer lo que está después de "f__" y antes de "."
+        grepl(".__", Group) ~ sub(".*f__(.*)\\..*", "other \\1", Group),  # Si contiene ".__", extraer lo que está después de "f__" y antes de "."
         TRUE ~ Group  # Si no contiene ninguno, mantener el nombre original
       ))
     
@@ -84,8 +84,8 @@ relative_abundance_plot <-
       scale_fill_manual(name = label, values = cbPalette) +
       theme_bw() +
       theme(panel.grid = element_blank(),
-            legend.title = element_text(size = 17),
-            legend.text = element_markdown(size = 12)) +
+            legend.title = element_text(size = 12),
+            legend.text = element_markdown(size = 10)) +
       ylim(0, 100) +
       ylab("Relative abundance (%)") +
       xlab("Sample")
